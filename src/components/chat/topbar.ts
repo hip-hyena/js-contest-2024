@@ -59,6 +59,8 @@ import PopupBoostsViaGifts from '../popups/boostsViaGifts';
 import AppStatisticsTab from '../sidebarRight/tabs/statistics';
 import {ChatType} from './chat';
 
+import ChatStreamBar from './streamBar';
+
 type ButtonToVerify = {element?: HTMLElement, verify: () => boolean | Promise<boolean>};
 
 const PINNED_ALWAYS_FLOATING = false;
@@ -84,6 +86,7 @@ export default class ChatTopbar {
   private chatActions: ChatActions;
   private chatRequests: ChatRequests;
   private chatAudio: ChatAudio;
+  public chatStreamBar: ChatStreamBar;
   public pinnedMessage: ChatPinnedMessage;
 
   private setUtilsRAF: number;
@@ -161,6 +164,7 @@ export default class ChatTopbar {
     this.chatAudio = new ChatAudio(this, this.chat, this.managers);
     this.chatRequests = new ChatRequests(this, this.chat, this.managers);
     this.chatActions = new ChatActions(this, this.chat, this.managers);
+    this.chatStreamBar = new ChatStreamBar(this, this.chat, this.managers);
 
     if(this.menuButtons.length) {
       this.btnMore = ButtonMenuToggle({
@@ -210,6 +214,10 @@ export default class ChatTopbar {
 
     if(this.chatActions) {
       this.container.append(this.chatActions.divAndCaption.container);
+    }
+
+    if(this.chatStreamBar) {
+      this.container.append(this.chatStreamBar.divAndCaption.container);
     }
 
     // * construction end
@@ -315,6 +323,39 @@ export default class ChatTopbar {
 
     r();
   };
+
+  async isStreamBarVisible() {
+    if(!IS_GROUP_CALL_SUPPORTED || this.peerId.isUser() || this.chat.type !== ChatType.Chat || this.chat.threadId) return false;
+    const currentGroupCall = groupCallsController.groupCall;
+    const chatId = this.peerId.toChatId();
+    if(currentGroupCall?.chatId === chatId) {
+      return false;
+    }
+    if(!(await this.managers.appPeersManager.isBroadcast(this.peerId))) {
+      return false;
+    }
+    const chatFull = await this.managers.appProfileManager.getCachedFullChat(chatId);
+    if(chatFull && chatFull.call) {
+      if(chatFull.call.id == groupCallsController.currentVideoStreamId) {
+        return false;
+      }
+      // this.chatStreamBar.setParticipantCount(chatFull);
+      // console.log('current call: ', chatFull.call);
+      this.managers.appGroupCallsManager.getGroupCallFull(chatFull.call.id).then((call) => {
+        this.chatStreamBar.setParticipantCount(call._ == 'groupCall' ? call.participants_count : 0);
+      });
+      return true;
+    }
+    return false;
+  }
+
+  async updateStreamBarVisibility(triggerAnim?: boolean) {
+    const isVisible = await this.isStreamBarVisible();
+    this.chatStreamBar.toggle(!isVisible);
+    if(triggerAnim && isVisible) {
+      this.chatStreamBar.triggerJoinAnim();
+    }
+  }
 
   private verifyVideoChatButton = async(type?: 'group' | 'broadcast') => {
     if(!IS_GROUP_CALL_SUPPORTED || this.peerId.isUser() || this.chat.type !== ChatType.Chat || this.chat.threadId) return false;
@@ -624,7 +665,8 @@ export default class ChatTopbar {
   }
 
   private onJoinGroupCallClick = () => {
-    this.chat.appImManager.joinGroupCall(this.peerId);
+    // this.chat.appImManager.joinGroupCall(this.peerId);
+    this.chat.appImManager.createVideoStream(this.peerId);
   };
 
   private get peerId() {
@@ -698,6 +740,7 @@ export default class ChatTopbar {
         this.btnJoin.classList.toggle('hide', !(chat as Channel)?.pFlags?.left);
         this.setUtilsWidth();
         this.verifyButtons();
+        this.updateStreamBarVisibility();
       }
     });
 
@@ -710,7 +753,12 @@ export default class ChatTopbar {
     this.listenerSetter.add(rootScope)('peer_full_update', (peerId) => {
       if(this.peerId === peerId) {
         this.verifyButtons();
+        this.updateStreamBarVisibility();
       }
+    });
+
+    this.listenerSetter.add(rootScope)('group_call_update', (peerId) => {
+      this.updateStreamBarVisibility();
     });
 
     this.listenerSetter.add(rootScope)('chat_requests', ({chatId, recentRequesters, requestsPending}) => {
@@ -811,6 +859,7 @@ export default class ChatTopbar {
     this.chatAudio?.destroy();
     this.chatRequests?.destroy();
     this.chatActions?.destroy();
+    this.chatStreamBar?.destroy();
 
     delete this.pinnedMessage;
     delete this.chatAudio;
@@ -966,6 +1015,8 @@ export default class ChatTopbar {
 
       this.container.classList.remove('hide');
 
+      this.updateStreamBarVisibility(true);
+
       if(setRequestsCallback.result instanceof Promise) {
         this.chatRequests.unset(peerId);
       }
@@ -1108,7 +1159,8 @@ export default class ChatTopbar {
       this.chatAudio,
       this.chatRequests,
       this.chatActions,
-      this.pinnedMessage?.pinnedMessageContainer
+      this.pinnedMessage?.pinnedMessageContainer,
+      this.chatStreamBar
     ].filter(Boolean);
     const count = containers.reduce((acc, container) => {
       const isFloating = container.isFloating();

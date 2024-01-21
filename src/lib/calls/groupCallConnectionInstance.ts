@@ -161,6 +161,8 @@ export default class GroupCallConnectionInstance extends CallConnectionInstanceB
 
     const data: UpdateGroupCallConnectionData = JSON.parse(update.params.data);
 
+    // console.log('invoked: ', update);
+    // debugger;
     data.audio = data.audio || groupCall.connections.main.description.audio;
     description.setData(data);
     filterServerCodecs(mainChannels, data);

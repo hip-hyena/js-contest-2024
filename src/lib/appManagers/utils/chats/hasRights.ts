@@ -150,6 +150,10 @@ export default function hasRights(
       return isAdmin && !!myFlags['post_messages'];
     }
 
+    case 'create_videostream': {
+      return (chat._ === 'channel' && chat.pFlags.creator);
+    }
+
     // case 'view_statistics': {
     //   return isAdmin && !!myFlags['other'];
     // }

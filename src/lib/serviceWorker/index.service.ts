@@ -7,6 +7,7 @@
 import {logger, LogTypes} from '../logger';
 import {CACHE_ASSETS_NAME, requestCache} from './cache';
 import onStreamFetch from './stream';
+import onVideoStreamFetch from './videostream';
 import {closeAllNotifications, onPing, onShownNotification} from './push';
 import CacheStorageController from '../files/cacheStorage';
 import {IS_SAFARI} from '../../environment/userAgent';
@@ -139,6 +140,11 @@ const onFetch = (event: FetchEvent): void => {
     switch(scope) {
       case 'stream': {
         onStreamFetch(event, params);
+        break;
+      }
+
+      case 'vstream': {
+        onVideoStreamFetch(event, params);
         break;
       }
 

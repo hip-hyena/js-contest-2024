@@ -27,6 +27,16 @@ export type ServiceRequestFilePartTaskPayload = {
   limit: number
 };
 
+export type ServiceRequestVideoStreamTaskPayload = {
+  dcId: number,
+  id: string | number,
+  accessHash: string | number,
+  timeMs?: string | number,
+  scale: number,
+  videoChannel: number,
+  videoQuality: number
+};
+
 export type ServiceDownloadTaskPayload = {
   headers: any,
   id: string
@@ -56,7 +66,8 @@ export default class ServiceMessagePort<Master extends boolean = false> extends 
   share: (payload: ShareData) => void,
 
   // to mtproto worker
-  requestFilePart: (payload: ServiceRequestFilePartTaskPayload) => Promise<MyUploadFile> | MyUploadFile
+  requestFilePart: (payload: ServiceRequestFilePartTaskPayload) => Promise<MyUploadFile> | MyUploadFile,
+  requestVideoStreamPart: (payload: ServiceRequestVideoStreamTaskPayload) => Promise<MyUploadFile> | MyUploadFile
 } & ServiceEvent, Master> {
   constructor() {
     super('SERVICE');

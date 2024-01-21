@@ -59,6 +59,60 @@ body.is-calling {
   }
 }
 
+body.is-watching-stream {
+  .topbar {
+    &, 
+    &-stream-container {
+      transform: translateY(0);
+    }
+  }
+
+  &.animation-level-2 {
+    .topbar {
+      &,
+      &-stream-container {
+        transition: transform var(--transition-standard-out);
+      }
+    }
+  }
+
+  &:not(.backwards) {
+    .topbar {
+      &, 
+      &-stream-container {
+        transform: translateY(var(--topbar-stream-height));
+      }
+    }
+
+    &:not(.animating) {
+      --topbar-floating-stream-height: var(--topbar-stream-height);
+    }
+  }
+}
+.topbar-stream-container {
+	color: #fff;
+	background: linear-gradient(89.55deg, #4588E3 -10.53%, #976FFF 53.6%, #E46ACE 104.82%), #FFFFFF;
+}
+.topbar-stream-left {
+	position: absolute;
+	left: 1rem;
+	font-family: 'Roboto Condensed', var(--font-regular);
+	font-size: 14px;
+	font-weight: 500;
+}
+.topbar-stream-center {
+	margin: auto;
+	font-size: 14px;
+}
+.topbar-stream-container .peer-title {
+	font-weight: medium;
+}
+.topbar-stream-status {
+	color: rgba(255, 255, 255, 0.6);
+	margin-left: 0.5rem;
+	display: inline;
+}
+
 body.is-right-column-shown {
   @include respond-to(medium-screens) {
     --topbar-floating-scaleX: calc(1 - var(--right-column-proportion));
@@ -72,7 +126,7 @@ body.is-right-column-shown {
   --pinned-floating-message-height: 0px;
   --pinned-floating-requests-height: 0px;
   --pinned-floating-actions-height: 0px;
-	--pinned-floating-height: calc(var(--pinned-floating-audio-height) + var(--pinned-floating-message-height) + var(--pinned-floating-requests-height) + var(--pinned-floating-actions-height) + var(--topbar-floating-call-height));
+	--pinned-floating-height: calc(var(--pinned-floating-audio-height) + var(--pinned-floating-message-height) + var(--pinned-floating-requests-height) + var(--pinned-floating-actions-height) + var(--topbar-floating-call-height) + var(--topbar-floating-stream-height));
   
   --pinned-container-height: 3.25rem;
 	--pinned-audio-height: var(--pinned-container-height);
@@ -89,7 +143,7 @@ body.is-right-column-shown {
 	&:before {
 		content: " ";
 		position: absolute;
-		height: calc(var(--topbar-height) + var(--pinned-floating-height) - var(--topbar-floating-call-height));
+		height: calc(var(--topbar-height) + var(--pinned-floating-height) - var(--topbar-floating-call-height) - var(--topbar-floating-stream-height));
 		top: 0;
 		right: 0;
 		left: 0;
@@ -457,6 +511,76 @@ body.is-right-column-shown {
         width: 100%;
         height: 100%;
       }
+    }
+  }
+
+	&-stream {
+    &-container {
+      height: var(--topbar-stream-height) !important;
+      min-height: auto !important;
+      position: absolute;
+      top: calc(var(--topbar-stream-height) * -1);
+      inset-inline: 1px 0; // because I have border-right on left sidebar that "pushes" the chat
+      color: #fff;
+      z-index: 2;
+      cursor: pointer !important;
+
+      body:not(.has-chat) & {
+        background: none !important;
+      }
+
+      @include respond-to(until-floating-left-sidebar) {
+        inset-inline-start: 0;
+      }
+
+      .peer-title {
+        font-weight: 500;
+        white-space: nowrap;
+      }
+
+			@media only screen and (max-width: 480px) {
+				.topbar-stream-left,
+				.topbar-stream-right {
+					width: auto;
+				}
+
+				.group-call-description {
+					display: none;
+				}
+			}
+    }
+
+    &-left, 
+    &-right {
+      flex: 0 0 auto;
+      width: 12rem;
+    }
+
+    &-left {
+      display: flex;
+      align-items: center;
+
+      .btn-icon {
+        margin-inline-end: .375rem;
+      }
+    }
+
+    &-center {
+      @include sidebar-transform(1);
+      @include text-overflow();
+
+      @include respond-to(medium-screens) {
+        // ! it flicks over the left side :(
+        // body.is-right-column-shown & {
+          padding: 0 calc(var(--right-column-width) / 2);
+        // }
+      }
+    }
+
+    &-right {
+      @include sidebar-transform();
+      display: flex;
+      justify-content: flex-end;
     }
   }
 

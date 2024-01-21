@@ -139,7 +139,9 @@
 
   --topbar-floating-scaleX: 1;
   --topbar-call-height: 3rem;
+  --topbar-stream-height: 1.7rem;
   --topbar-floating-call-height: 0px;
+  --topbar-floating-stream-height: 0px;
 
   --call-button-size: 3.375rem;
   --call-button-margin: 2rem;
@@ -433,6 +435,8 @@
 @import "partials/quote";
 @import "partials/similarChannels";
 @import "partials/tooltip";
+@import "partials/videostream";
+@import "partials/streamBar";
 
 @import "partials/popups/popup";
 @import "partials/popups/editAvatar";

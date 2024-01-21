@@ -123,7 +123,8 @@
 }
 
 .pinned-message, 
-.reply {
+.reply,
+.stream-bar-info {
   --font-size: var(--font-size-14);
   --custom-emoji-size: calc(var(--font-size) + 4px);
   --line-height: calc(var(--font-size) + 4px);

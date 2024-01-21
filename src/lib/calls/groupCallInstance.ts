@@ -35,6 +35,7 @@ export default class GroupCallInstance extends CallInstanceBase<{
 }> {
   public id: GroupCallId;
   public chatId: ChatId;
+  // public isVideoStream: boolean; // Should be true if and only if in channels
   public handleUpdateGroupCallParticipants: boolean;
   public updatingSdp: boolean;
   public isSpeakingMap: Map<any, any>;
@@ -115,6 +116,10 @@ export default class GroupCallInstance extends CallInstanceBase<{
 
   get participants() {
     return this.managers.appGroupCallsManager.getCachedParticipants(this.id);
+  }
+
+  get participantCount() {
+    return this.managers.appGroupCallsManager.getCachedParticipantCount(this.id);
   }
 
   get isSharingScreen() {

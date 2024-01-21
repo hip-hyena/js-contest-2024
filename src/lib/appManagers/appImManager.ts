@@ -26,7 +26,7 @@ import {MOUNT_CLASS_TO} from '../../config/debug';
 import appNavigationController from '../../components/appNavigationController';
 import AppPrivateSearchTab from '../../components/sidebarRight/tabs/search';
 import I18n, {i18n, join, LangPackKey} from '../langPack';
-import {ChatFull, ChatParticipants, Message, MessageAction, MessageMedia, SendMessageAction, User, Chat as MTChat, UrlAuthResult, WallPaper, Config, AttachMenuBot, Peer, InputChannel, HelpPeerColors} from '../../layer';
+import {ChatFull, ChatParticipants, Message, MessageAction, MessageMedia, SendMessageAction, User, Chat as MTChat, UrlAuthResult, WallPaper, Config, AttachMenuBot, Peer, InputChannel, HelpPeerColors, InputGroupCall} from '../../layer';
 import PeerTitle from '../../components/peerTitle';
 import {PopupPeerCheckboxOptions} from '../../components/popups/peer';
 import blurActiveElement from '../../helpers/dom/blurActiveElement';
@@ -46,6 +46,7 @@ import {NULL_PEER_ID} from '../mtproto/mtproto_config';
 import telegramMeWebManager from '../mtproto/telegramMeWebManager';
 import {ONE_DAY} from '../../helpers/date';
 import TopbarCall from '../../components/topbarCall';
+import TopbarPipStream from '../../components/topbarPipStream';
 import confirmationPopup from '../../components/confirmationPopup';
 import IS_GROUP_CALL_SUPPORTED from '../../environment/groupCallSupport';
 import IS_CALL_SUPPORTED from '../../environment/callSupport';
@@ -116,6 +117,8 @@ import safePlay from '../../helpers/dom/safePlay';
 import {RequestWebViewOptions} from './appAttachMenuBotsManager';
 import PopupWebApp from '../../components/popups/webApp';
 import {getPeerColorIndexByPeer, getPeerColorsByPeer, setPeerColors} from './utils/peers/getPeerColorById';
+import PopupStreamSettings from '../../components/popups/streamSettings';
+import PopupVideoStream from '../../components/popups/stream';
 
 export type ChatSavedPosition = {
   mids: number[],
@@ -170,6 +173,7 @@ export class AppImManager extends EventListenerBase<{
   private backgroundPromises: {[slug: string]: Promise<string>};
 
   private topbarCall: TopbarCall;
+  public topbarPipStream: TopbarPipStream;
 
   private lastBackgroundUrl: string;
 
@@ -530,6 +534,8 @@ export class AppImManager extends EventListenerBase<{
       this.overrideHash(peerId);
 
       apiManagerProxy.updateTabState('chatPeerIds', this.chats.map((chat) => chat.peerId).filter(Boolean));
+
+      this.topbarPipStream.updateChat(this.chat);
     });
 
     // stateStorage.get('chatPositions').then((c) => {
@@ -538,6 +544,7 @@ export class AppImManager extends EventListenerBase<{
 
     if(IS_CALL_SUPPORTED || IS_GROUP_CALL_SUPPORTED) {
       this.topbarCall = new TopbarCall(managers);
+      this.topbarPipStream = new TopbarPipStream();
     }
 
     if(IS_CALL_SUPPORTED) {
@@ -1407,6 +1414,75 @@ export class AppImManager extends EventListenerBase<{
         await currentGroupCall.hangUp();
       }
     }
+  }
+
+  public async createVideoStream(peerId: PeerId) {
+    const chatId = peerId.toChatId();
+    const chatFull = await this.managers.appProfileManager.getChatFull(chatId);
+    if(chatFull.call) {
+      // There's already a stream/call, join it
+      groupCallsController.joinGroupCall(chatId, chatFull.call.id, true, false);
+      return;
+    }
+
+    const isChannel = await rootScope.managers.appChatsManager.isChannel(chatId);
+    const isBroadcast = await rootScope.managers.appChatsManager.isBroadcast(chatId);
+
+    if(!isChannel || !isBroadcast || !this.managers.appChatsManager.hasRights(chatId, 'create_videostream')) {
+      if(this.managers.appChatsManager.hasRights(chatId, 'manage_call')) {
+        // Not allowed to start video stream, but can create a regular video call
+        const call = await this.managers.appGroupCallsManager.createGroupCall(chatId);
+        groupCallsController.joinGroupCall(chatId, call.id, true, false);
+      }
+      return;
+    }
+
+    const settings = await this.managers.apiManager.invokeApi('phone.getGroupCallStreamRtmpUrl', {
+      peer: await this.managers.appPeersManager.getInputPeerById(peerId),
+      revoke: false
+    });
+    console.log('settings: ', settings);
+
+    const popup = PopupElement.createPopup(PopupStreamSettings, {
+      peerId,
+      serverUrl: settings.url,
+      streamKey: settings.key,
+      isRunning: false
+    });
+    popup.show();
+
+    popup.addEventListener('close', async() => {
+      if(popup.action != 'start') {
+        return;
+      }
+
+      const call = await this.managers.appGroupCallsManager.createGroupCall(chatId);
+      this.joinVideoStream(peerId, {_: 'inputGroupCall', id: call.id, access_hash: call.access_hash}, true, popup.serverUrl, popup.streamKey);
+    });
+  }
+
+  public async joinVideoStream(peerId: PeerId, groupCall: InputGroupCall, asAdmin?: boolean, serverUrl?: string, streamKey?: string) {
+    const sourceId = Math.floor(Math.random() * 1e9);
+    const res = await this.managers.appGroupCallsManager.joinGroupCall(groupCall.id, {
+      _: 'dataJSON',
+      data: JSON.stringify({
+        'fingerprints': [],
+        'pwd': '',
+        'ssrc': sourceId,
+        'ssrc-groups': [],
+        'ufrag': ''
+      })}, {'type': 'main'});
+    if(PopupElement.getPopups(PopupVideoStream).length) {
+      return;
+    }
+    PopupElement.createPopup(PopupVideoStream, {
+      peerId: peerId,
+      sourceId: sourceId,
+      groupCall: groupCall,
+      serverUrl,
+      streamKey,
+      isAdmin: asAdmin
+    }).show();
   }
 
   public async joinGroupCall(peerId: PeerId, groupCallId?: GroupCallId) {

@@ -52,6 +52,7 @@ export class GroupCallsController extends EventListenerBase<{
   private audioAsset: ReturnType<typeof getGroupCallAudioAsset>;
   private log: ReturnType<typeof logger>;
   private currentGroupCall: GroupCallInstance;
+  public currentVideoStreamId?: string | number;
   private managers: AppManagers;
 
   public construct(managers: AppManagers) {

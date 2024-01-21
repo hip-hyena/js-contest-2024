@@ -124,6 +124,23 @@ export class AppManagersManager {
             const {docId, dcId, offset, limit} = payload;
             return managers.appDocsManager.requestDocPart(docId, dcId, offset, limit);
           });
+        },
+        requestVideoStreamPart: (payload) => {
+          return callbackify(appManagersManager.getManagers(), (managers) => {
+            const {dcId, id, accessHash, timeMs, scale, videoChannel, videoQuality} = payload;
+            return managers.apiFileManager.requestFilePart(dcId, {
+              _: 'inputGroupCallStream',
+              call: {
+                _: 'inputGroupCall',
+                id,
+                access_hash: accessHash
+              },
+              time_ms: timeMs,
+              scale,
+              video_channel: videoChannel,
+              video_quality: videoQuality
+            }, 0, 1024*1024);
+          });
         }
       });
     }

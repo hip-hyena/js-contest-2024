@@ -44,6 +44,7 @@ export class AppGroupCallsManager extends AppManager {
 
   private groupCalls: Map<GroupCallId, MyGroupCall>;
   private participants: Map<GroupCallId, Map<PeerId, GroupCallParticipant>>;
+  private participantsCount: Map<GroupCallId, number>;
   private nextOffsets: Map<GroupCallId, string>;
 
   // private doNotDispatchParticipantUpdate: PeerId;
@@ -53,6 +54,7 @@ export class AppGroupCallsManager extends AppManager {
 
     this.groupCalls = new Map();
     this.participants = new Map();
+    this.participantsCount = new Map();
     this.nextOffsets = new Map();
 
     this.apiUpdatesManager.addMultipleEventsListeners({
@@ -73,6 +75,9 @@ export class AppGroupCallsManager extends AppManager {
     this.rootScope.addEventListener('group_call_update', (groupCall) => {
       if(groupCall._ === 'groupCallDiscarded') {
         this.participants.delete(groupCall.id);
+        this.participantsCount.delete(groupCall.id);
+      } else {
+        this.participantsCount.set(groupCall.id, groupCall.participants_count);
       }
     });
   }
@@ -84,6 +89,10 @@ export class AppGroupCallsManager extends AppManager {
     }
 
     return participants;
+  }
+
+  public getCachedParticipantCount(groupCallId: GroupCallId) {
+    return this.participantsCount.get(groupCallId) || 0;
   }
 
   private prepareToSavingNextOffset(groupCallId: GroupCallId) {
@@ -242,9 +251,10 @@ export class AppGroupCallsManager extends AppManager {
     return call;
   }
 
-  public async createGroupCall(chatId: ChatId, scheduleDate?: number, title?: string) {
+  public async createGroupCall(chatId: ChatId, scheduleDate?: number, title?: string, rtmpStream?: boolean) {
     const updates = await this.apiManager.invokeApi('phone.createGroupCall', {
       peer: this.appPeersManager.getInputPeerById(chatId.toPeerId(true)),
+      rtmp_stream: !!rtmpStream,
       random_id: nextRandomUint(32),
       schedule_date: scheduleDate,
       title
