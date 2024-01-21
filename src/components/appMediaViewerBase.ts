@@ -65,6 +65,7 @@ import handleVideoLeak from '../helpers/dom/handleVideoLeak';
 import Icon from './icon';
 import {replaceButtonIcon} from './button';
 import setCurrentTime from '../helpers/dom/setCurrentTime';
+import patchVideo from '../helpers/videoPatcher';
 
 const ZOOM_STEP = 0.5;
 const ZOOM_INITIAL_VALUE = 1;
@@ -1879,12 +1880,27 @@ export default class AppMediaViewerBase<
 
             const url = (await getCacheContext()).url;
 
-            const onUnsupported = () => {
+            const onUnsupported = async() => {
+              const error = video.error;
+              if(error && error.message == 'DECODER_ERROR_NOT_SUPPORTED: Audio configuration specified 2 channels, but FFmpeg thinks the file contains 1 channels') {
+                // Workaround for Chromium AAC bug:
+                // https://bugs.chromium.org/p/chromium/issues/detail?id=1250841
+                //
+                // TODO: To improve performance, this probably should be done in Service Worker
+                const patched = await patchVideo(url);
+                if(patched) { // Was unable to patch video, just rethrow the original error
+                  const blobUrl = URL.createObjectURL(new Blob([patched]));
+                  video.src = blobUrl;
+                  this.updateMediaSource(target, url, 'video');
+                  // handleVideoLeak(video, onMediaLoad(video)).catch(onUnsupported);
+                  return;
+                }
+              }
+
               toastNew({
                 langPackKey: IS_MOBILE ? 'Video.Unsupported.Mobile' : 'Video.Unsupported.Desktop'
               });
 
-              const error = video.error;
               if(error && error.code !== 4) {
                 this.log.error('Error ' + error.code + '; details: ' + error.message);
               }

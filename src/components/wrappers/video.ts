@@ -45,6 +45,7 @@ import Icon from '../icon';
 import LazyLoadQueue from '../lazyLoadQueue';
 import ProgressivePreloader from '../preloader';
 import wrapPhoto from './photo';
+import patchVideo from '../../helpers/videoPatcher';
 
 const MAX_VIDEO_AUTOPLAY_SIZE = 50 * 1024 * 1024; // 50 MB
 
@@ -591,7 +592,23 @@ export default async function wrapVideo({doc, altDoc, container, message, boxWid
         }
         renderDeferred.reject(err);
       };
-      const onMediaLoadPromise = onMediaLoad(video);
+      const onMediaLoadPromise = onMediaLoad(video).catch(async(err: any) => {
+        if(err && err.message == 'DECODER_ERROR_NOT_SUPPORTED: Audio configuration specified 2 channels, but FFmpeg thinks the file contains 1 channels') {
+          // Workaround for Chromium AAC bug:
+          // https://bugs.chromium.org/p/chromium/issues/detail?id=1250841
+          //
+          // TODO: To improve performance, this probably should be done in Service Worker
+          const patched = await patchVideo(cacheContext.url);
+          if(!patched) { // Was unable to patch video, just rethrow the original error
+            throw err;
+          }
+          const blobUrl = URL.createObjectURL(new Blob([patched]));
+          video.src = blobUrl;
+          return onMediaLoad(video);
+        } else {
+          throw err;
+        }
+      });
       const videoLeakPromise = handleVideoLeak(video, onMediaLoadPromise);
       videoLeakPromise.catch(onError);
       onMediaLoadPromise.then(() => {
